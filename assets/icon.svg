@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+  <!-- "R" nello stile di Neovim su piastrella scura arrotondata: asta blu con
+       tagli obliqui, pancia e gamba verdi con ombra di sovrapposizione. -->
+<defs><linearGradient id="C_s" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#16B0ED"/><stop offset="1" stop-color="#0F59B7"/></linearGradient><linearGradient id="C_b" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#88C649"/><stop offset="1" stop-color="#439240"/></linearGradient><linearGradient id="C_l" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#6DB548"/><stop offset="1" stop-color="#2E7D32"/></linearGradient>
+<linearGradient id="C_t" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#232a36"/><stop offset="1" stop-color="#151a22"/></linearGradient>
+<linearGradient id="C_sh" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#000" stop-opacity="0.45"/><stop offset="1" stop-color="#000" stop-opacity="0"/></linearGradient></defs>
+<rect x="6" y="6" width="244" height="244" rx="56" fill="url(#C_t)"/>
+<g transform="translate(128 128) scale(0.9) translate(-134 -128)">
+<path d="M118 140 L164 140 L216 228 L170 228 Z" fill="url(#C_l)"/>
+<path fill-rule="evenodd" fill="url(#C_b)" d="M96 28 L160 28 L206 74 L206 96 L160 142 L96 142 Z M108 66 L146 66 L162 82 L162 88 L146 104 L108 104 Z"/>
+<path d="M96 28 L124 28 L124 142 L96 142 Z" fill="url(#C_sh)"/>
+<path d="M52 44 L100 24 L100 232 L52 212 Z" fill="url(#C_s)"/>
+</g></svg>

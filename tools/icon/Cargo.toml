@@ -1,0 +1,13 @@
+# Separate tool (not part of the build): rasterizes assets/icon.svg and
+# generates assets/icon.ico and assets/icon.res (icon resource for the Windows exe).
+#   cargo run --release --manifest-path tools/icon/Cargo.toml
+[package]
+name = "icon"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[workspace]
+
+[dependencies]
+resvg = "0.45"
