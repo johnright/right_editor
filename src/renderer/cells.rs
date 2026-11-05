@@ -14,6 +14,8 @@ use crate::editor::{CellText, HlTable, Row, TextInterner};
 pub struct RowInstances {
     pub bg: Vec<Instance>,
     pub fg: Vec<Instance>,
+    /// built with `paint_default_bg`
+    pub default_bg: bool,
 }
 
 #[derive(Default)]
@@ -52,6 +54,7 @@ impl RowBuilder {
     ) -> Result<(), AtlasFull> {
         out.bg.clear();
         out.fg.clear();
+        out.default_bg = ctx.paint_default_bg;
         let cells = &row.cells;
         let m = ctx.metrics;
         let default_bg = ctx.hl.defaults().bg;

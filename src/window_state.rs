@@ -127,6 +127,64 @@ pub fn set_cloaked(_window: &winit::window::Window, _cloaked: bool) -> bool {
     false
 }
 
+/// Acrylic behind the translucent parts. DWM only draws the system backdrop
+/// in the frame, so the frame gets extended over the whole client area, and
+/// without dark mode the tint is white.
+#[cfg(windows)]
+pub fn set_blur(window: &winit::window::Window, on: bool) {
+    use windows::Win32::Foundation::HWND;
+    use windows::Win32::Graphics::Dwm::{
+        DWM_SYSTEMBACKDROP_TYPE, DWMSBT_NONE, DWMSBT_TRANSIENTWINDOW, DWMWA_SYSTEMBACKDROP_TYPE,
+        DWMWA_USE_IMMERSIVE_DARK_MODE, DwmExtendFrameIntoClientArea, DwmSetWindowAttribute,
+    };
+    use windows::Win32::UI::Controls::MARGINS;
+    use windows::core::BOOL;
+    use winit::raw_window_handle::{HasWindowHandle, RawWindowHandle};
+
+    let Some(RawWindowHandle::Win32(handle)) = window.window_handle().ok().map(|h| h.as_raw())
+    else {
+        return;
+    };
+    let hwnd = HWND(handle.hwnd.get() as *mut _);
+    let edge = if on { -1 } else { 0 };
+    let margins = MARGINS {
+        cxLeftWidth: edge,
+        cxRightWidth: edge,
+        cyTopHeight: edge,
+        cyBottomHeight: edge,
+    };
+    let dark = BOOL::from(true);
+    let backdrop: DWM_SYSTEMBACKDROP_TYPE = if on {
+        DWMSBT_TRANSIENTWINDOW
+    } else {
+        DWMSBT_NONE
+    };
+    let result = unsafe {
+        DwmExtendFrameIntoClientArea(hwnd, &margins).and_then(|()| {
+            if on {
+                DwmSetWindowAttribute(
+                    hwnd,
+                    DWMWA_USE_IMMERSIVE_DARK_MODE,
+                    &dark as *const BOOL as *const _,
+                    size_of::<BOOL>() as u32,
+                )?;
+            }
+            DwmSetWindowAttribute(
+                hwnd,
+                DWMWA_SYSTEMBACKDROP_TYPE,
+                &backdrop as *const DWM_SYSTEMBACKDROP_TYPE as *const _,
+                size_of::<DWM_SYSTEMBACKDROP_TYPE>() as u32,
+            )
+        })
+    };
+    if let Err(err) = result {
+        log::warn!("blur {on}: {err} (needs Windows 11 22H2)");
+    }
+}
+
+#[cfg(not(windows))]
+pub fn set_blur(_window: &winit::window::Window, _on: bool) {}
+
 #[cfg(test)]
 mod tests {
     use super::*;

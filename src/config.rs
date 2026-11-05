@@ -25,6 +25,8 @@ pub struct Config {
     pub multigrid: bool,
     pub floating_shadow: bool,
     pub backdrop: f32,
+    pub opacity: f32,
+    pub blur: bool,
     pub preview_width: f32,
     pub preview_font: Option<String>,
     pub preview_font_size: Option<f32>,
@@ -80,6 +82,8 @@ impl Default for Config {
             multigrid: true,
             floating_shadow: true,
             backdrop: 0.3,
+            opacity: 1.0,
+            blur: false,
             preview_width: 0.45,
             preview_font: None,
             preview_font_size: None,
@@ -109,6 +113,8 @@ usage: right_editor [options] [file...] [-- arguments for nvim]
   --no-multigrid          everything on a single grid (no ext_multigrid)
   --no-floating-shadow    no shadow under floating windows
   --backdrop <0-1>        dimming behind a focused float, 0 = off (default: 0.3)
+  --opacity <0.1-1>       opacity of the default background, text stays opaque (default: 1)
+  --blur                  blur what's behind the window (Windows 11 acrylic, needs opacity < 1)
   --preview-width <0.2-0.8>  width of the markdown preview panel (default: 0.45)
   --preview-font <family>    font of the preview (default: Segoe UI)
   --preview-font-size <points> text size of the preview (default: the editor's)
@@ -203,7 +209,9 @@ impl Config {
                 "--config" => {
                     args.next(); // already read in load()
                 }
-                "--latency" | "--no-wsl" => self.set_flag(&arg[2..], true)?,
+                "--latency" | "--no-wsl" | "--blur" => {
+                    self.set_flag(&arg[2..], true)?
+                }
                 "--no-multigrid" => self.multigrid = false,
                 "--no-floating-shadow" => self.floating_shadow = false,
                 flag if flag.starts_with("--") => {
@@ -229,6 +237,7 @@ impl Config {
             "no-wsl" => self.nvim.no_wsl = on,
             "multigrid" => self.multigrid = on,
             "floating-shadow" => self.floating_shadow = on,
+            "blur" => self.blur = on,
             _ => bail!("unknown or non-boolean option: {key}"),
         }
         Ok(())
@@ -282,6 +291,13 @@ impl Config {
                     .ok()
                     .filter(|b: &f32| (0.0..=1.0).contains(b))
                     .with_context(|| format!("invalid backdrop: {value} (0-1)"))?;
+            }
+            "opacity" => {
+                self.opacity = value
+                    .parse()
+                    .ok()
+                    .filter(|o: &f32| (0.1..=1.0).contains(o))
+                    .with_context(|| format!("invalid opacity: {value} (0.1-1)"))?;
             }
             "preview-width" => {
                 self.preview_width = value

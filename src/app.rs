@@ -164,7 +164,20 @@ impl App {
             }
             self.geometry = Some(saved);
         }
+        // the GDI surface would sit opaque under the DirectComposition swapchain
+        #[cfg(windows)]
+        if self.config.opacity < 1.0 {
+            use winit::platform::windows::WindowAttributesExtWindows;
+            attrs = attrs.with_no_redirection_bitmap(true);
+        }
         let window = Arc::new(event_loop.create_window(with_icon(attrs))?);
+        if self.config.blur {
+            if self.config.opacity < 1.0 {
+                crate::window_state::set_blur(&window, true);
+            } else {
+                log::warn!("blur needs opacity < 1, nothing to see through");
+            }
+        }
         // DXGI drops frames presented to a hidden window, so make it visible
         // but cloaked, and do it before creating the surface.
         self.cloaked = crate::window_state::set_cloaked(&window, true);
