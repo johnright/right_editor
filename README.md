@@ -9,7 +9,7 @@ It's a native Windows app in Rust (winit, wgpu on DX12, DirectWrite for the
 text) that starts `nvim --embed` in your WSL distro, with your usual config and
 plugins.
 
-![Demo: cursor trail, smooth scrolling, typing animations and the file picker](assets/screenshots/demo.gif)
+![Demo: cursor trail, smooth scrolling, typing, the file picker and the markdown preview](assets/screenshots/demo.gif)
 
 ![Code view](assets/screenshots/code.png)
 
