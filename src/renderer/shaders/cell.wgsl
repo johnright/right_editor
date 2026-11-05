@@ -72,12 +72,6 @@ fn alpha_correction3(a: vec3<f32>, f: vec3<f32>, g: vec4<f32>) -> vec3<f32> {
     return a + a * (1.0 - a) * ((g.x * f + g.y) * a + (g.z * f + g.w));
 }
 
-// back off the contrast boost for light-on-dark, or it looks bold
-fn light_on_dark_contrast(k: f32, color: vec3<f32>) -> f32 {
-    let lightness = dot(color, vec3<f32>(0.30, 0.59, 0.11));
-    return k * saturate(4.0 * (0.75 - lightness));
-}
-
 const TAU: f32 = 6.2831853;
 
 fn decoration_coverage(in: VertexOut) -> f32 {
@@ -146,13 +140,14 @@ fn shade(in: VertexOut) -> Shaded {
         return out;
     }
     if in.kind == KIND_SUBPIXEL {
-        let k = light_on_dark_contrast(globals.enhanced_contrast, fg);
+        // no light-on-dark backoff like Windows Terminal's: looked dim next to Zed
+        let k = globals.enhanced_contrast;
         let a = alpha_correction3(enhance_contrast3(texel.rgb, k), fg, globals.gamma_ratios) * in.color.a;
         out.color = vec4<f32>(fg * a, max(a.r, max(a.g, a.b)));
         out.weight = vec4<f32>(a, out.color.a);
         return out;
     }
-    let k = light_on_dark_contrast(globals.grayscale_enhanced_contrast, fg);
+    let k = globals.grayscale_enhanced_contrast;
     let intensity = dot(fg, vec3<f32>(0.25, 0.5, 0.25));
     let a = alpha_correction(enhance_contrast(texel.a, k), intensity, globals.gamma_ratios) * in.color.a;
     out.color = vec4<f32>(fg * a, a);
