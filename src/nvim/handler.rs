@@ -92,6 +92,10 @@ impl Handler for RedrawHandler {
                 }
                 None => log::debug!("preview: unrecognized notification"),
             },
+            "right_editor_wheel" => {
+                let n = |i: usize| args.get(i).and_then(Value::as_u64).unwrap_or(0) as f64;
+                let _ = self.proxy.send_event(UserEvent::WheelLines(n(0), n(1)));
+            }
             // errors from requests we sent as notifications (input goes this way)
             "nvim_error_event" => log::error!("nvim: {args:?}"),
             _ => log::debug!("ignored notification: {name} {args:?}"),

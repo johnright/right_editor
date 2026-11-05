@@ -38,6 +38,7 @@ pub enum UserEvent {
     NvimRestarted,
     VSync,
     Preview(PreviewEvent),
+    WheelLines(f64, f64),
     /// from the preview layout/image threads
     PreviewMsg(PreviewMsg),
 }
@@ -55,8 +56,11 @@ pub struct App {
     mods: Mods,
     mouse: (f64, f64),
     pointer_on_link: bool,
-    /// Leftover fractions of a col/row from touchpad pixel deltas.
+    /// Leftover fractions of a col/row.
     scroll_accum: (f64, f64),
+    /// the user's 'mousescroll', 1 until nvim sends it
+    wheel_lines: (f64, f64),
+    zoom_accum: f64,
     dragging: Option<&'static str>,
     /// Grid the drag started on and its screen origin, in cells.
     drag_grid: Option<(u64, i64, i64)>,
@@ -112,6 +116,8 @@ impl App {
             mouse: (0.0, 0.0),
             pointer_on_link: false,
             scroll_accum: (0.0, 0.0),
+            wheel_lines: (1.0, 1.0),
+            zoom_accum: 0.0,
             dragging: None,
             drag_grid: None,
             last_mouse_cell: None,
@@ -641,15 +647,16 @@ impl App {
     /// One nvim `wheel` event per row/column. Ctrl+wheel zooms.
     fn on_wheel(&mut self, delta: MouseScrollDelta) {
         if self.mods.ctrl && !self.mods.alt {
-            let up = match delta {
-                MouseScrollDelta::LineDelta(_, y) => y > 0.0,
-                MouseScrollDelta::PixelDelta(p) => p.y > 0.0,
+            // touchpad pinch = Ctrl+wheel in small steps
+            self.zoom_accum += match delta {
+                MouseScrollDelta::LineDelta(_, y) => y as f64,
+                MouseScrollDelta::PixelDelta(p) => p.y / 100.0,
             };
-            self.set_zoom(if up {
-                self.zoom * ZOOM_STEP
-            } else {
-                self.zoom / ZOOM_STEP
-            });
+            let steps = self.zoom_accum.trunc();
+            self.zoom_accum -= steps;
+            if steps != 0.0 {
+                self.set_zoom(self.zoom * ZOOM_STEP.powi(steps as i32));
+            }
             return;
         }
         let Some(renderer) = &self.renderer else {
@@ -670,28 +677,30 @@ impl App {
             return;
         }
         let (cell_w, cell_h) = renderer.cell_size();
-        let (cols, lines) = match delta {
-            MouseScrollDelta::LineDelta(x, y) => (x as f64, y as f64),
-            // TODO: touchpads still scroll by whole rows, no pixel scrolling yet
-            MouseScrollDelta::PixelDelta(p) => {
-                self.scroll_accum.0 += p.x / cell_w as f64;
-                self.scroll_accum.1 += p.y / cell_h as f64;
-                let whole = (self.scroll_accum.0.trunc(), self.scroll_accum.1.trunc());
-                self.scroll_accum.0 -= whole.0;
-                self.scroll_accum.1 -= whole.1;
-                whole
-            }
+        // Windows only sends LineDelta, touchpads in fractions of a notch
+        let (dx, dy) = match delta {
+            MouseScrollDelta::LineDelta(x, y) => (
+                x as f64 * self.wheel_lines.0,
+                y as f64 * self.wheel_lines.1,
+            ),
+            MouseScrollDelta::PixelDelta(p) => (p.x / cell_w as f64, p.y / cell_h as f64),
         };
-        if (lines.abs() >= 0.5 || cols.abs() >= 0.5)
+        self.scroll_accum.0 += dx;
+        self.scroll_accum.1 += dy;
+        let cols = self.scroll_accum.0.trunc();
+        let lines = self.scroll_accum.1.trunc();
+        self.scroll_accum.0 -= cols;
+        self.scroll_accum.1 -= lines;
+        if (lines != 0.0 || cols != 0.0)
             && let Some(latency) = &mut self.latency
         {
             latency.input("wheel", if lines < 0.0 { "down" } else { "up" });
         }
-        for _ in 0..lines.abs().round() as u32 {
+        for _ in 0..lines.abs() as u32 {
             self.send_mouse("wheel", if lines > 0.0 { "up" } else { "down" });
         }
         // positive x is left
-        for _ in 0..cols.abs().round() as u32 {
+        for _ in 0..cols.abs() as u32 {
             self.send_mouse("wheel", if cols > 0.0 { "left" } else { "right" });
         }
     }
@@ -931,6 +940,10 @@ impl ApplicationHandler<UserEvent> for App {
                 self.sync_grid_size();
             }
             UserEvent::Preview(event) => self.on_preview(event),
+            UserEvent::WheelLines(ver, hor) => {
+                log::debug!("mousescroll: ver {ver}, hor {hor}");
+                self.wheel_lines = (hor, ver);
+            }
             UserEvent::PreviewMsg(msg) => self.on_preview_msg(msg),
             UserEvent::VSync => {
                 if self.animating

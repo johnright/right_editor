@@ -65,7 +65,7 @@ async fn session(
             .context("nvim_ui_attach failed")?;
         log::info!("ui_attach done after {:?}", started.elapsed());
         // spawned so keys don't queue behind it
-        tokio::spawn(install_preview(nvim.clone()));
+        tokio::spawn(install_lua(nvim.clone()));
         if restarted {
             // Unlike --embed, a `:restart`ed server keeps running when its UI
             // goes away.
@@ -126,20 +126,48 @@ vim.api.nvim_create_autocmd('UILeave', {
 })
 "#;
 
-async fn install_preview(nvim: nvim_rs::Neovim<Writer>) {
-    let result = async {
-        // 0 = our own channel
-        let info = nvim.get_chan_info(0).await?;
-        let id = info
+/// One `wheel` per row so touchpads can scroll less than a notch: the GUI
+/// takes over the user's 'mousescroll', nvim's stays at 1.
+const WHEEL: &str = r#"
+local chan = ...
+local busy = false
+local function sync()
+  if busy then
+    return
+  end
+  local s = vim.o.mousescroll
+  local ver = tonumber(s:match('ver:(%d+)')) or 3
+  local hor = tonumber(s:match('hor:(%d+)')) or 6
+  vim.rpcnotify(chan, 'right_editor_wheel', ver, hor)
+  busy = true
+  vim.o.mousescroll = 'ver:1,hor:1'
+  busy = false
+end
+vim.api.nvim_create_autocmd('OptionSet', {
+  pattern = 'mousescroll',
+  desc = 'right_editor: wheel multiplier',
+  callback = sync,
+})
+sync()
+"#;
+
+async fn install_lua(nvim: nvim_rs::Neovim<Writer>) {
+    // 0 = our own channel
+    let id = match nvim.get_chan_info(0).await {
+        Ok(info) => info
             .iter()
             .find(|(k, _)| k.as_str() == Some("id"))
             .and_then(|(_, v)| v.as_i64())
-            .unwrap_or(0);
-        nvim.exec_lua(crate::preview::LUA, vec![id.into()]).await?;
-        Ok::<_, Box<nvim_rs::error::CallError>>(())
+            .unwrap_or(0),
+        Err(err) => {
+            log::warn!("no channel id, nvim-side Lua not installed: {err}");
+            return;
+        }
+    };
+    if let Err(err) = nvim.exec_lua(WHEEL, vec![id.into()]).await {
+        log::warn!("wheel setup not installed in nvim: {err}");
     }
-    .await;
-    if let Err(err) = result {
+    if let Err(err) = nvim.exec_lua(crate::preview::LUA, vec![id.into()]).await {
         log::warn!("markdown preview not installed in nvim: {err}");
     }
 }
