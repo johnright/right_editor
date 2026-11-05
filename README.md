@@ -56,7 +56,7 @@ Neovim itself. Use `--latency` to measure it on yours.
 - On the Windows side: native title bar and icon, Start menu shortcut, remembered
   window geometry (maximized too), no white flash on startup, full mouse
   support, AltGr and IME-composed text, Ctrl +/-/0 zoom, Alt+Enter to
-  maximize.
+  maximize. Optional translucent background with acrylic blur.
 - Starts `nvim` through `wsl.exe` in the distro and folder taken from
   the current directory, and kills it when the window goes away. `:restart`
   works too: the window stays open and reattaches to the new server through a
@@ -120,6 +120,8 @@ Started from a WSL terminal, Neovim opens in the current folder of that distro.
 | `--text-fade <ms>` | 70 | fade-in of typed characters, 0 = off |
 | `--text-slide <ms>` | 0 | slide of the text after the cursor when typing mid-line |
 | `--backdrop <0-1>` | 0.3 | dimming behind a focused floating window |
+| `--opacity <0.1-1>` | 1 | opacity of the default background, text stays opaque |
+| `--blur` | | acrylic blur behind a translucent window (Windows 11) |
 | `--preview-width <0.2-0.8>` | 0.45 | share of the window taken by the markdown preview |
 | `--preview-font <family>` | Segoe UI | font of the markdown preview |
 | `--preview-font-size <pt>` | the editor font size | text size of the markdown preview |
@@ -215,6 +217,12 @@ To regenerate the icon after editing `assets/icon.svg`:
 ```sh
 cargo run --release --manifest-path tools/icon/Cargo.toml
 ```
+
+## Roadmap
+
+Next: a prebuilt release you can install with Scoop, a scrollbar with search
+and diagnostic marks, animated floats and a taskbar jump list. More in
+[ROADMAP.md](ROADMAP.md). If something breaks on your setup, open an issue.
 
 ## License
 
