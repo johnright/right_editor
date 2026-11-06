@@ -325,10 +325,11 @@ impl Layout<'_> {
                     self.image_rows(&images, x, width, style.align == Align::Center);
                     return;
                 }
-                // "**Title**<br>\n<img ...>" is common in READMEs: lines holding only
-                // images get drawn as images, the rest as text
+                // "**Title**<br>\n<img ...>" is common in READMEs: lines with images
+                // get laid out on their own, the rest as text
+                let has_image = |l: &[Span]| l.iter().any(|s| matches!(s, Span::Image { .. }));
                 let lines = split_lines(spans);
-                if lines.len() < 2 || lines.iter().all(|l| only_images(l).is_none()) {
+                if !lines.iter().any(|l| has_image(l)) {
                     self.y += self.text(spans, x, self.y, width, style);
                     return;
                 }
@@ -347,13 +348,26 @@ impl Layout<'_> {
                     text.clear();
                 };
                 for line in &lines {
-                    if let Some(images) = only_images(line) {
+                    if has_image(line) {
                         flush(self, &mut text, &mut first);
                         if !first {
                             self.y += gap;
                         }
                         first = false;
-                        self.image_rows(&images, x, width, style.align == Align::Center);
+                        let center = style.align == Align::Center;
+                        if let Some(images) = only_images(line) {
+                            self.image_rows(&images, x, width, center);
+                        } else if !self.inline_row(line, x, width, style) {
+                            let words: Vec<Span> = line
+                                .iter()
+                                .filter(|s| matches!(s, Span::Text(..)))
+                                .cloned()
+                                .collect();
+                            self.y += self.text(&words, x, self.y, width, style) + gap;
+                            let images: Vec<&Span> =
+                                line.iter().filter(|s| !matches!(s, Span::Text(..))).collect();
+                            self.image_rows(&images, x, width, center);
+                        }
                     } else {
                         if !text.is_empty() {
                             text.push(Span::Text("\n".into(), Style::default()));
@@ -641,62 +655,160 @@ impl Layout<'_> {
         }
     }
 
-    fn image_rows(&mut self, spans: &[&Span], x: f32, width: f32, center: bool) {
-        let em = self.em;
-        let scale = self.p.scale;
-        let gap = (em * 0.25).round();
-        let pad = (em * 0.5).round();
-        let placeholder = TextStyle {
+    fn placeholder_style(&self) -> TextStyle {
+        TextStyle {
             color: self.p.theme.muted,
             italic: true,
             ..self.body()
+        }
+    }
+
+    fn image_box<'s>(&mut self, span: &'s Span, width: f32) -> Option<RowImage<'s>> {
+        let Span::Image {
+            url,
+            alt,
+            link,
+            width: want_w,
+            height: want_h,
+        } = span
+        else {
+            return None;
         };
-        let mut images = Vec::new();
-        for span in spans {
-            let Span::Image {
-                url,
-                alt,
-                link,
-                width: want_w,
-                height: want_h,
-            } = span
-            else {
-                continue;
-            };
-            let state = self.p.images.get(url.as_str()).copied();
-            let (w, h, ready) = match state {
-                Some(ImageSize::Ready(nw, nh)) => {
-                    let (nw, nh) = (nw.max(1) as f32, nh.max(1) as f32);
-                    let (w, h) = match (want_w, want_h) {
-                        (Some(w), Some(h)) => (*w as f32, *h as f32),
-                        (Some(w), None) => (*w as f32, *w as f32 * nh / nw),
-                        (None, Some(h)) => (*h as f32 * nw / nh, *h as f32),
-                        (None, None) => (nw, nh),
-                    };
-                    let (w, h) = (w * scale, h * scale);
-                    let k = (width / w).min(1.0);
-                    ((w * k).round().max(1.0), (h * k).round().max(1.0), true)
+        let scale = self.p.scale;
+        let pad = (self.em * 0.5).round();
+        let state = self.p.images.get(url.as_str()).copied();
+        let (w, h, ready) = match state {
+            Some(ImageSize::Ready(nw, nh)) => {
+                let (nw, nh) = (nw.max(1) as f32, nh.max(1) as f32);
+                let (w, h) = match (want_w, want_h) {
+                    (Some(w), Some(h)) => (*w as f32, *h as f32),
+                    (Some(w), None) => (*w as f32, *w as f32 * nh / nw),
+                    (None, Some(h)) => (*h as f32 * nw / nh, *h as f32),
+                    (None, None) => (nw, nh),
+                };
+                let (w, h) = (w * scale, h * scale);
+                let k = (width / w).min(1.0);
+                ((w * k).round().max(1.0), (h * k).round().max(1.0), true)
+            }
+            _ => {
+                if state.is_none() && !self.doc.missing_images.iter().any(|u| u == url) {
+                    self.doc.missing_images.push(url.clone());
                 }
-                _ => {
-                    if state.is_none() && !self.doc.missing_images.iter().any(|u| u == url) {
-                        self.doc.missing_images.push(url.clone());
-                    }
-                    let label = placeholder_label(url, alt, state.is_some());
-                    let span = [Span::Text(label, Style::default())];
-                    let w = (self.measure(&span, placeholder) + 2.0 * pad).min(width);
-                    let h = self.height_of(&span, w - 2.0 * pad, placeholder) + 2.0 * pad;
-                    (w, h, false)
-                }
-            };
-            images.push(RowImage {
-                url,
-                alt,
-                link: *link,
-                w,
-                h,
-                ready,
+                let placeholder = self.placeholder_style();
+                let label = placeholder_label(url, alt, state.is_some());
+                let span = [Span::Text(label, Style::default())];
+                let w = (self.measure(&span, placeholder) + 2.0 * pad).min(width);
+                let h = self.height_of(&span, w - 2.0 * pad, placeholder) + 2.0 * pad;
+                (w, h, false)
+            }
+        };
+        Some(RowImage {
+            url,
+            alt,
+            link: *link,
+            w,
+            h,
+            ready,
+        })
+    }
+
+    fn draw_image(&mut self, img: &RowImage, x: f32, y: f32) {
+        if img.ready {
+            self.doc.images.push(Image {
+                x,
+                y,
+                w: img.w,
+                h: img.h,
+                url: img.url.to_string(),
+            });
+        } else {
+            let pad = (self.em * 0.5).round();
+            self.rect(x, y, img.w, img.h, self.p.theme.code_bg);
+            let failed = self.p.images.contains_key(img.url);
+            let label = placeholder_label(img.url, img.alt, failed);
+            let span = [Span::Text(label, Style::default())];
+            let placeholder = self.placeholder_style();
+            self.text(&span, x + pad, y + pad, img.w - 2.0 * pad, placeholder);
+        }
+        if let Some(url) = img.link.and_then(|l| self.links.get(l as usize)) {
+            self.doc.links.push(Link {
+                x,
+                y,
+                w: img.w,
+                h: img.h,
+                url: url.clone(),
             });
         }
+    }
+
+    // text and images on one line, bottom-aligned like a browser
+    fn inline_row(&mut self, line: &[Span], x: f32, width: f32, style: TextStyle) -> bool {
+        let gap = (self.em * 0.25).round();
+        enum Item<'s> {
+            Text(Vec<Span>, f32),
+            Image(RowImage<'s>),
+        }
+        let mut items: Vec<Item> = Vec::new();
+        for span in line {
+            match span {
+                Span::Text(..) => match items.last_mut() {
+                    Some(Item::Text(spans, _)) => spans.push(span.clone()),
+                    _ => items.push(Item::Text(vec![span.clone()], 0.0)),
+                },
+                Span::Image { .. } => {
+                    let Some(img) = self.image_box(span, width) else {
+                        continue;
+                    };
+                    items.push(Item::Image(img));
+                }
+            }
+        }
+        for item in &mut items {
+            if let Item::Text(spans, w) = item {
+                *w = self.measure(spans, style);
+            }
+        }
+        let total: f32 = items
+            .iter()
+            .map(|i| match i {
+                Item::Text(_, w) => *w,
+                Item::Image(img) => img.w,
+            })
+            .sum::<f32>()
+            + gap * items.len().saturating_sub(1) as f32;
+        if total > width {
+            return false;
+        }
+        let row_h = items
+            .iter()
+            .map(|i| match i {
+                Item::Text(..) => style.line_height,
+                Item::Image(img) => img.h,
+            })
+            .fold(0.0, f32::max);
+        let mut ix = x;
+        for item in &items {
+            match item {
+                Item::Text(spans, w) => {
+                    self.text(spans, ix, self.y + row_h - style.line_height, w + 1.0, style);
+                    ix += w + gap;
+                }
+                Item::Image(img) => {
+                    self.draw_image(img, ix, self.y + row_h - img.h);
+                    ix += img.w + gap;
+                }
+            }
+        }
+        self.y += row_h;
+        true
+    }
+
+    fn image_rows(&mut self, spans: &[&Span], x: f32, width: f32, center: bool) {
+        let gap = (self.em * 0.25).round();
+        let images: Vec<RowImage> = spans
+            .iter()
+            .filter_map(|span| self.image_box(span, width))
+            .collect();
         let mut rows: Vec<std::ops::Range<usize>> = Vec::new();
         let mut start = 0;
         let mut row_w = 0.0;
@@ -725,31 +837,7 @@ impl Layout<'_> {
             };
             for img in row {
                 // bottom-aligned within the row, like inline images
-                let iy = self.y + row_h - img.h;
-                if img.ready {
-                    self.doc.images.push(Image {
-                        x: ix,
-                        y: iy,
-                        w: img.w,
-                        h: img.h,
-                        url: img.url.to_string(),
-                    });
-                } else {
-                    self.rect(ix, iy, img.w, img.h, self.p.theme.code_bg);
-                    let failed = self.p.images.contains_key(img.url);
-                    let label = placeholder_label(img.url, img.alt, failed);
-                    let span = [Span::Text(label, Style::default())];
-                    self.text(&span, ix + pad, iy + pad, img.w - 2.0 * pad, placeholder);
-                }
-                if let Some(url) = img.link.and_then(|l| self.links.get(l as usize)) {
-                    self.doc.links.push(Link {
-                        x: ix,
-                        y: iy,
-                        w: img.w,
-                        h: img.h,
-                        url: url.clone(),
-                    });
-                }
+                self.draw_image(img, ix, self.y + row_h - img.h);
                 ix += img.w + gap;
             }
             self.y += row_h;
@@ -1108,6 +1196,18 @@ mod tests {
         let doc = lay(text, HashMap::from([("a.svg".to_string(), ImageSize::Ready(100, 20))]));
         assert_eq!(doc.images.len(), 1);
         assert!(doc.images[0].y > 0.0, "the image goes below the title");
+    }
+
+    #[test]
+    fn images_inside_text_get_loaded() {
+        let doc = lay("Build: ![ci](ci.svg) ok\n", HashMap::new());
+        assert_eq!(doc.missing_images, vec!["ci.svg".to_string()]);
+        let ready = HashMap::from([("ci.svg".to_string(), ImageSize::Ready(90, 20))]);
+        let doc = lay("Build: ![ci](ci.svg) ok\n", ready);
+        assert_eq!(doc.images.len(), 1);
+        if !doc.glyphs.is_empty() {
+            assert!(doc.images[0].x > 30.0, "on the text's row, after it");
+        }
     }
 
     #[test]
