@@ -41,7 +41,7 @@ impl WindowState {
     pub fn save(&self) {
         let Some(path) = path() else { return };
         let text = format!(
-            "# Written by right_editor on exit: window position and size.\n\
+            "# Written by nvright on exit: window position and size.\n\
              x = {}\ny = {}\nwidth = {}\nheight = {}\nmaximized = {}\n",
             self.x, self.y, self.width, self.height, self.maximized
         );

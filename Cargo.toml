@@ -1,10 +1,10 @@
 [package]
-name = "right_editor"
+name = "nvright"
 version = "0.2.1"
 edition = "2024"
 description = "A low-latency Neovim GUI for Windows that runs Neovim inside WSL"
 license = "MIT"
-repository = "https://github.com/johnright/right_editor"
+repository = "https://github.com/johnright/nvright"
 
 [features]
 # Build with the "windows" subsystem (no console). By default the

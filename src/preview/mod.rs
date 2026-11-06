@@ -1,7 +1,7 @@
 //! Markdown preview panel, drawn by the GUI next to the nvim grid.
 //!
 //! `preview.lua` runs inside nvim and pushes buffer text, viewport and theme
-//! colors as `right_editor_md` notifications. Parse + layout happen on one
+//! colors as `nvright_md` notifications. Parse + layout happen on one
 //! thread and image loading on another; the window thread only ever gets
 //! finished documents and pixels.
 
@@ -22,7 +22,7 @@ use parse::Highlight;
 
 pub const LUA: &str = include_str!("preview.lua");
 
-pub const TOGGLE: &str = "_G.right_editor_preview.toggle()";
+pub const TOGGLE: &str = "_G.nvright_preview.toggle()";
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum PreviewEvent {

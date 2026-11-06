@@ -68,7 +68,7 @@ impl Gpu {
             .features()
             .contains(wgpu::Features::DUAL_SOURCE_BLENDING);
         let (device, queue) = pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor {
-            label: Some("right_editor"),
+            label: Some("nvright"),
             required_features: if dual_source {
                 wgpu::Features::DUAL_SOURCE_BLENDING
             } else {

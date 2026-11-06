@@ -110,7 +110,7 @@ async fn session(
 /// unsaved changes, so the swap files stay around for recovery.
 const EXIT_WITH_GUI: &str = r#"
 vim.api.nvim_create_autocmd('UILeave', {
-  desc = 'right_editor: exit with the GUI',
+  desc = 'nvright: exit with the GUI',
   callback = function()
     if #vim.api.nvim_list_uis() > 0 or vim.v.exiting ~= vim.NIL then
       return
@@ -138,14 +138,14 @@ local function sync()
   local s = vim.o.mousescroll
   local ver = tonumber(s:match('ver:(%d+)')) or 3
   local hor = tonumber(s:match('hor:(%d+)')) or 6
-  vim.rpcnotify(chan, 'right_editor_wheel', ver, hor)
+  vim.rpcnotify(chan, 'nvright_wheel', ver, hor)
   busy = true
   vim.o.mousescroll = 'ver:1,hor:1'
   busy = false
 end
 vim.api.nvim_create_autocmd('OptionSet', {
   pattern = 'mousescroll',
-  desc = 'right_editor: wheel multiplier',
+  desc = 'nvright: wheel multiplier',
   callback = sync,
 })
 sync()

@@ -1,6 +1,6 @@
-<p align="center"><img src="assets/icon-256.png" alt="right_editor icon" width="96"></p>
+<p align="center"><img src="assets/icon-256.png" alt="nvright icon" width="96"></p>
 
-<h1 align="center">right editor</h1>
+<h1 align="center">nvright</h1>
 
 A Neovim GUI for Windows, for people who run Neovim inside WSL. I wanted two
 things from it: low input latency and text as sharp as in Zed.
@@ -41,7 +41,7 @@ Neovim itself. Use `--latency` to measure it on yours.
   per window, fade-in of typed characters, and the text right of the cursor
   sliding over when you type mid-line.
 - **Markdown preview** in a panel next to Neovim, drawn by the GUI
-  (`Ctrl+Shift+M` or `:RightEditorPreview`). Proportional text, headings in
+  (`Ctrl+Shift+M` or `:NvrightPreview`). Proportional text, headings in
   the colorscheme's colors, lists, task lists, quotes, GitHub alerts,
   footnotes, tables, code blocks highlighted with Neovim's treesitter parsers,
   the HTML you find in READMEs (centered logos, `<kbd>`, ...), and local or
@@ -70,7 +70,7 @@ Neovim itself. Use `--latency` to measure it on yours.
 
 ## Building
 
-right_editor is developed in WSL and cross-compiled for Windows with
+nvright is developed in WSL and cross-compiled for Windows with
 [cargo-xwin](https://github.com/rust-cross/cargo-xwin).
 
 One-time toolchain setup (in WSL):
@@ -91,8 +91,8 @@ scripts/build-win.sh             # debug build with a console window
 cargo check && cargo test && cargo clippy --all-targets   # quick checks on Linux
 ```
 
-The release build is installed to `%LOCALAPPDATA%\right_editor\bin\`, plus a
-`right_editor` entry in the Start menu that starts Neovim in your WSL home.
+The release build is installed to `%LOCALAPPDATA%\nvright\bin\`, plus a
+`nvright` entry in the Start menu that starts Neovim in your WSL home.
 Launch that copy. An `.exe` run from the WSL filesystem is sometimes a stale
 cached version. Installing fails while an instance is running, since Windows
 locks the file.
@@ -100,7 +100,7 @@ locks the file.
 ## Usage
 
 ```
-right_editor [options] [file...] [-- arguments for nvim]
+nvright [options] [file...] [-- arguments for nvim]
 ```
 
 Started from a WSL terminal, Neovim opens in the current folder of that distro.
@@ -130,7 +130,7 @@ Started from a WSL terminal, Neovim opens in the current folder of that distro.
 | `--present-mode <mode>` | mailbox, else fifo | `fifo`, `fifo-relaxed`, `mailbox`, `immediate` |
 | `--bg <#rrggbb>` | | background color before Neovim sends its own |
 | `--latency` | | log the latency of every input |
-| `--log <filter>` | `warn,right_editor=info` | `env_logger` filter |
+| `--log <filter>` | `warn,nvright=info` | `env_logger` filter |
 | `--distro <name>`, `--cwd <path>` | from the current directory | where to start Neovim |
 | `--nvim <path>`, `--wsl <path>` | `nvim`, `wsl.exe` | executables |
 | `--shell <path>` | | start Neovim through a login shell (for its `PATH`) |
@@ -139,8 +139,8 @@ Started from a WSL terminal, Neovim opens in the current folder of that distro.
 
 ### Configuration file
 
-Every option can also go in `%APPDATA%\right_editor\config.toml`
-(`~/.config/right_editor/config.toml` on Linux), with the same name and no
+Every option can also go in `%APPDATA%\nvright\config.toml`
+(`~/.config/nvright/config.toml` on Linux), with the same name and no
 `--`. The command line wins over the file.
 
 ```toml
@@ -157,16 +157,16 @@ same folder.
 
 ### Neovim side
 
-`g:right_editor = 1` is set before your config loads, for GUI-only settings:
+`g:nvright = 1` is set before your config loads, for GUI-only settings:
 
 ```lua
-if vim.g.right_editor then
+if vim.g.nvright then
   vim.o.guifont = 'CaskaydiaCove\\ Nerd\\ Font:h13.5:w500'
 end
 ```
 
 It's worth turning off plugins that animate inside the grid (`snacks.scroll`,
-`smear-cursor`, ...) when `vim.g.right_editor` is set. right_editor animates the
+`smear-cursor`, ...) when `vim.g.nvright` is set. nvright animates the
 cursor and scrolling itself, without holding back the real update.
 
 ### Shortcuts
@@ -178,7 +178,7 @@ These are handled by the GUI and never reach Neovim:
 - `Ctrl` + `Shift` + `V`: paste the Windows clipboard in any mode. In a
   `:terminal` it is a bracketed paste, so multi-line commands are not run;
 - `Ctrl` + `Shift` + `M`: show / hide the markdown preview (same as
-  `:RightEditorPreview`, `:RightEditorPreview!` hides it). It follows the
+  `:NvrightPreview`, `:NvrightPreview!` hides it). It follows the
   current markdown buffer and keeps the last one while you edit other files.
   The mouse wheel over the panel scrolls it on its own until Neovim scrolls.
   A click on a link follows it, anywhere else it moves the cursor to that line.

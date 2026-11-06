@@ -14,7 +14,7 @@ Nothing here is a promise, and anything that makes typing slower or text worse w
 - [ ] **Vulkan by default** – about half the memory of DX12 on my machine
 - [ ] **Images in markdown** – paste a screenshot or drop an image file and get
   a link
-- [ ] **New name: nvright** – right_editor says nothing about Neovim
+- [x] **New name: nvright** – right_editor said nothing about Neovim
 - [ ] **Releases** – a prebuilt `.exe` on GitHub Releases and `scoop install nvright`,
   no cross-compiling toolchain needed
 - [ ] **Scrollbar** – thin, drawn over the text while you scroll, with marks for

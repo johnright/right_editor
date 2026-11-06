@@ -58,9 +58,9 @@ fn nvim_args(cmd: &mut Command, launch: &NvimLaunch) {
     cmd.args(&launch.args);
 }
 
-/// Runs before the user config, so init.lua can check `vim.g.right_editor`.
+/// Runs before the user config, so init.lua can check `vim.g.nvright`.
 /// The config can still turn `title` off.
-const GUI_SETUP: &str = "let g:right_editor = 1 | set title";
+const GUI_SETUP: &str = "let g:nvright = 1 | set title";
 
 /// Lua run by `nvim --clean --headless -l` on the nvim side, piping
 /// stdin/stdout to a unix socket. That's how we reach the server `:restart`

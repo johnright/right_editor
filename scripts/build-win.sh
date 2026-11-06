@@ -4,7 +4,7 @@
 #   scripts/build-win.sh --release  # no console, installed
 # Other args go to cargo.
 #
-# --release installs to %LOCALAPPDATA%\right_editor\bin (prints the path) and
+# --release installs to %LOCALAPPDATA%\nvright\bin (prints the path) and
 # adds a Start menu shortcut. Run it from there: started from the WSL
 # filesystem, Windows sometimes runs a stale cached copy.
 set -euo pipefail
@@ -23,23 +23,24 @@ cargo xwin build --target x86_64-pc-windows-msvc --features gui-subsystem "$@" >
 
 powershell=/mnt/c/Windows/System32/WindowsPowerShell/v1.0/powershell.exe
 local_appdata=$("$powershell" -NoProfile -Command '[Environment]::GetFolderPath("LocalApplicationData")' | tr -d '\r')
-bin_win="$local_appdata\\right_editor\\bin"
+bin_win="$local_appdata\\nvright\\bin"
 bin=$(wslpath -u "$bin_win")
 mkdir -p "$bin"
-if ! cp target/x86_64-pc-windows-msvc/release/right_editor.exe "$bin/right_editor.exe"; then
-    echo "install failed: close the running right_editor instances and try again" >&2
+if ! cp target/x86_64-pc-windows-msvc/release/nvright.exe "$bin/nvright.exe"; then
+    echo "install failed: close the running nvright instances and try again" >&2
     exit 1
 fi
 
 # shortcut starts in $HOME of this distro
 home_unc="\\\\wsl.localhost\\${WSL_DISTRO_NAME}$(echo "$HOME" | tr / '\\')"
 "$powershell" -NoProfile -Command "
-    \$lnk = Join-Path ([Environment]::GetFolderPath('Programs')) 'right_editor.lnk'
+    \$lnk = Join-Path ([Environment]::GetFolderPath('Programs')) 'nvright.lnk'
     \$s = (New-Object -ComObject WScript.Shell).CreateShortcut(\$lnk)
-    \$s.TargetPath = '$bin_win\\right_editor.exe'
+    \$s.TargetPath = '$bin_win\\nvright.exe'
     \$s.WorkingDirectory = '$home_unc'
     \$s.Description = 'Neovim GUI'
     \$s.Save()
+    Remove-Item (Join-Path ([Environment]::GetFolderPath('Programs')) 'right_editor.lnk') -ErrorAction SilentlyContinue
 " >&2
 echo "installed in $bin_win, with a Start menu shortcut" >&2
-echo "$bin/right_editor.exe"
+echo "$bin/nvright.exe"

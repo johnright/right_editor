@@ -1412,6 +1412,29 @@ dependencies = [
 ]
 
 [[package]]
+name = "nvright"
+version = "0.2.1"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "bytemuck",
+ "cosmic-text",
+ "env_logger",
+ "image",
+ "log",
+ "nvim-rs",
+ "pollster",
+ "pulldown-cmark",
+ "resvg",
+ "rmpv",
+ "tokio",
+ "toml",
+ "wgpu",
+ "windows",
+ "winit",
+]
+
+[[package]]
 name = "objc-sys"
 version = "0.3.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2082,29 +2105,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "47b34b781b31e5d73e9fbc8689c70551fd1ade9a19e3e28cfec8580a79290cc4"
 dependencies = [
  "bytemuck",
-]
-
-[[package]]
-name = "right_editor"
-version = "0.2.1"
-dependencies = [
- "anyhow",
- "async-trait",
- "bytemuck",
- "cosmic-text",
- "env_logger",
- "image",
- "log",
- "nvim-rs",
- "pollster",
- "pulldown-cmark",
- "resvg",
- "rmpv",
- "tokio",
- "toml",
- "wgpu",
- "windows",
- "winit",
 ]
 
 [[package]]

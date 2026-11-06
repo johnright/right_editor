@@ -86,13 +86,13 @@ impl Handler for RedrawHandler {
     async fn handle_notify(&self, name: String, args: Vec<Value>, _nvim: Neovim<Writer>) {
         match name.as_str() {
             "redraw" => self.on_redraw(args),
-            "right_editor_md" => match crate::preview::parse_notification(args) {
+            "nvright_md" => match crate::preview::parse_notification(args) {
                 Some(event) => {
                     let _ = self.proxy.send_event(UserEvent::Preview(event));
                 }
                 None => log::debug!("preview: unrecognized notification"),
             },
-            "right_editor_wheel" => {
+            "nvright_wheel" => {
                 let n = |i: usize| args.get(i).and_then(Value::as_u64).unwrap_or(0) as f64;
                 let _ = self.proxy.send_event(UserEvent::WheelLines(n(0), n(1)));
             }
