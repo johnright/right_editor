@@ -641,8 +641,6 @@ impl Layout<'_> {
         }
     }
 
-    /// Images side by side, wrapping like words (badge rows), each shrunk to
-    /// fit the width.
     fn image_rows(&mut self, spans: &[&Span], x: f32, width: f32, center: bool) {
         let em = self.em;
         let scale = self.p.scale;

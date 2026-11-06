@@ -39,6 +39,8 @@ pub enum UserEvent {
     VSync,
     Preview(PreviewEvent),
     WheelLines(f64, f64),
+    #[cfg_attr(not(windows), allow(dead_code))]
+    Snapshot(u64),
     /// from the preview layout/image threads
     PreviewMsg(PreviewMsg),
 }
@@ -146,10 +148,16 @@ impl App {
         let mut attrs = Window::default_attributes()
             .with_title("right_editor")
             .with_inner_size(LogicalSize::new(1024.0, 640.0))
-            .with_visible(false);
+            .with_visible(false)
+            .with_active(!self.config.hidden);
+        #[cfg(windows)]
+        if self.config.hidden {
+            use winit::platform::windows::WindowAttributesExtWindows;
+            attrs = attrs.with_skip_taskbar(true);
+        }
         // skip the saved position if it's off every monitor (second screen unplugged)
         let mut maximized = false;
-        if let Some(saved) = WindowState::load() {
+        if let Some(saved) = WindowState::load().filter(|_| !self.config.hidden) {
             let visible = event_loop.available_monitors().any(|m| {
                 let (p, s) = (m.position(), m.size());
                 let (x, y) = (saved.x + 50, saved.y + 10);
@@ -224,7 +232,10 @@ impl App {
         if !(presented && sized && settled) && waited < MAX_HIDDEN {
             return;
         }
-        if !(self.cloaked && crate::window_state::set_cloaked(window, false)) {
+        // a hidden test window stays cloaked, frames still get presented
+        if !self.config.hidden
+            && !(self.cloaked && crate::window_state::set_cloaked(window, false))
+        {
             window.set_visible(true);
         }
         if presented && sized && settled {
@@ -915,6 +926,9 @@ impl ApplicationHandler<UserEvent> for App {
 
     fn exiting(&mut self, _event_loop: &ActiveEventLoop) {
         let Some(window) = &self.window else { return };
+        if self.config.hidden {
+            return;
+        }
         #[cfg(windows)]
         let geometry = crate::window_state::normal_placement(window);
         #[cfg(not(windows))]
@@ -953,6 +967,12 @@ impl ApplicationHandler<UserEvent> for App {
                 self.sync_grid_size();
             }
             UserEvent::Preview(event) => self.on_preview(event),
+            UserEvent::Snapshot(id) => {
+                if let (Some(renderer), Some(window)) = (&mut self.renderer, &self.window) {
+                    renderer.request_snapshot(crate::snapshot::path(id));
+                    window.request_redraw();
+                }
+            }
             UserEvent::WheelLines(ver, hor) => {
                 log::debug!("mousescroll: ver {ver}, hor {hor}");
                 self.wheel_lines = (hor, ver);

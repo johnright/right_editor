@@ -53,6 +53,8 @@ pub struct Renderer {
     background: u32,
     /// of the default background only, < 1 means a translucent window
     opacity: f32,
+    snapshot: Option<std::path::PathBuf>,
+    record: Option<crate::snapshot::Recorder>,
     cursor: CursorAnimation,
     cursor_duration: Duration,
     cursor_trail: f32,
@@ -128,7 +130,7 @@ impl Renderer {
         let scale = window.scale_factor();
         // bring up the GPU while the font thread is still loading
         let transparent = config.opacity < 1.0;
-        let gpu = Gpu::new(window, config.present_mode, transparent)?;
+        let gpu = Gpu::new(window, config.present_mode, transparent, config.hidden)?;
         let font_system = font_system
             .join()
             .map_err(|_| anyhow::anyhow!("loading the fonts failed"))?;
@@ -166,6 +168,8 @@ impl Renderer {
             segments: Vec::new(),
             background: (r as u32) << 16 | (g as u32) << 8 | b as u32,
             opacity: config.opacity,
+            snapshot: None,
+            record: crate::snapshot::Recorder::from_env(),
             cursor: CursorAnimation::new(),
             cursor_duration: Duration::from_millis(config.cursor_animation_ms),
             cursor_trail: config.cursor_trail,
@@ -532,7 +536,13 @@ impl Renderer {
                 self.pipeline.draw(&mut pass, &[glyphs], size);
             }
         }
+        let snapshot = self.snapshot.take();
+        let readback = (snapshot.is_some() || self.record.is_some())
+            .then(|| self.copy_frame(&mut encoder, &frame.texture));
         self.gpu.queue.submit([encoder.finish()]);
+        if let Some((buffer, stride)) = readback {
+            self.save_frame(snapshot.as_deref(), &buffer, stride);
+        }
         self.gpu.queue.present(frame);
         let presented = Instant::now();
         self.last_present = Some(presented);
@@ -542,6 +552,57 @@ impl Renderer {
             render: presented - acquired,
             presented,
         }))
+    }
+
+    pub fn request_snapshot(&mut self, path: std::path::PathBuf) {
+        self.snapshot = Some(path);
+    }
+
+    fn copy_frame(
+        &self,
+        encoder: &mut wgpu::CommandEncoder,
+        texture: &wgpu::Texture,
+    ) -> (wgpu::Buffer, u32) {
+        let (w, h) = (texture.width(), texture.height());
+        let stride = (w * 4).next_multiple_of(wgpu::COPY_BYTES_PER_ROW_ALIGNMENT);
+        let buffer = self.gpu.device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("snapshot"),
+            size: (stride * h) as u64,
+            usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::MAP_READ,
+            mapped_at_creation: false,
+        });
+        encoder.copy_texture_to_buffer(
+            texture.as_image_copy(),
+            wgpu::TexelCopyBufferInfo {
+                buffer: &buffer,
+                layout: wgpu::TexelCopyBufferLayout {
+                    offset: 0,
+                    bytes_per_row: Some(stride),
+                    rows_per_image: None,
+                },
+            },
+            texture.size(),
+        );
+        (buffer, stride)
+    }
+
+    fn save_frame(&self, path: Option<&std::path::Path>, buffer: &wgpu::Buffer, stride: u32) {
+        let slice = buffer.slice(..);
+        slice.map_async(wgpu::MapMode::Read, |_| {});
+        let _ = self.gpu.device.poll(wgpu::PollType::wait_indefinitely());
+        let (w, h) = (self.gpu.surface_config.width, self.gpu.surface_config.height);
+        let data = match slice.get_mapped_range() {
+            Ok(data) => data,
+            Err(err) => return log::warn!("mapping the frame: {err:?}"),
+        };
+        if let Some(record) = &self.record {
+            record.push(data.to_vec(), w, h, stride);
+        }
+        let Some(path) = path else { return };
+        match crate::snapshot::save(path, &data, w, h, stride) {
+            Ok(()) => log::info!("snapshot: {}", path.display()),
+            Err(err) => log::warn!("snapshot: {err:#}"),
+        }
     }
 
     fn update_rows(&mut self, order: &[Placed], state: &EditorState) -> Result<(), AtlasFull> {

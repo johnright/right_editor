@@ -9,6 +9,7 @@ mod latency;
 mod nvim;
 mod preview;
 mod renderer;
+mod snapshot;
 mod vsync;
 mod window_state;
 
@@ -38,7 +39,14 @@ fn main() -> Result<()> {
         system
     })?;
 
-    let event_loop = EventLoop::<UserEvent>::with_user_event().build()?;
+    let mut builder = EventLoop::<UserEvent>::with_user_event();
+    #[cfg(windows)]
+    if config.hidden {
+        snapshot::install(&mut builder);
+    }
+    let event_loop = builder.build()?;
+    #[cfg(windows)]
+    snapshot::set_proxy(event_loop.create_proxy());
     // no polling, wake only on events
     event_loop.set_control_flow(ControlFlow::Wait);
 

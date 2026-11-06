@@ -23,6 +23,7 @@ impl Gpu {
         window: Arc<Window>,
         present_mode: Option<wgpu::PresentMode>,
         transparent: bool,
+        readable: bool,
     ) -> Result<Self> {
         // DX12 first, on its own: DXGI flip model is the lowest-latency path we
         // have. Vulkan only as a fallback. WGPU_BACKEND still overrides.
@@ -118,7 +119,11 @@ impl Gpu {
         };
 
         let surface_config = wgpu::SurfaceConfiguration {
-            usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
+            usage: if readable {
+                wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::COPY_SRC
+            } else {
+                wgpu::TextureUsages::RENDER_ATTACHMENT
+            },
             format,
             width: size.width.max(1),
             height: size.height.max(1),
